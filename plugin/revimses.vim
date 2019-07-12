@@ -17,7 +17,6 @@ if !exists('g:revimses#session_dir')
 endif
 
 if !exists('revimses#sessionoptions')
-  " let revimses#sessionoptions = 'folds,help,tabpages'
   let revimses#sessionoptions = 'buffers,curdir,help,tabpages,winsize,slash'
 endif
 
@@ -32,26 +31,26 @@ endif
 
 augroup Revimses
   autocmd!
-  autocmd GUIEnter * call revimses#load_window(revimses#_win_file)
+  " autocmd GUIEnter * call revimses#load_window(revimses#_win_file)
   " nestedしないとSyntaxなどの設定が繁栄されない（BufReadとかがたぶん呼ばれない）
-  autocmd VimEnter * nested if argc() == 0 && bufnr('$') == 1 | call revimses#load_session(".default.vim",s:false) | endif
+  " autocmd VimEnter * nested if argc() == 0 && bufnr('$') == 1 | call revimses#restore_on_startup() | endif
   autocmd VimLeavePre * call revimses#save_window(revimses#_win_file)
-  autocmd VimLeavePre * if g:revimses#_save_session_flag == s:true | call revimses#save_session(".default.vim",s:true) | endif
+  autocmd VimLeavePre * if revimses#check_savable() | call revimses#save_session(".default.vim", s:true) | endif
 augroup END
 
-
-command! RevimsesClearAndQuit call revimses#clear_session()
+command! -nargs=? -complete=customlist,revimses#customlist
+      \ Revimses call revimses#load_window(g:revimses#_win_file) | call revimses#load_session(<q-args>, s:true)
 command! -nargs=1 -complete=customlist,revimses#customlist
-      \ RevimsesLoad call revimses#load_session(<q-args>,s:true)
-command! -nargs=1 -complete=customlist,revimses#customlist
-      \ RevimsesDelete call revimses#delete_session(<q-args>,s:true)
-command! -nargs=1 RevimsesSave call revimses#save_session(<q-args>,s:true)
+      \ RevimsesDelete call revimses#delete_session(<q-args>, s:true)
+command! -nargs=1
+      \ RevimsesSave call revimses#save_session(<q-args>, s:true)
+command!
+      \ RevimsesClearAndQuit call revimses#clear_session()
 
 
-if has('job')
+if has('job') || has('nvim')
   fun! revimses#timer_callback(timer) abort
-    " code
-    call revimses#save_session('.swap.vim',s:false)
+    call revimses#save_session('.swap.vim', s:false)
   endf
 
   call timer_start(5 * 60 * 1000, 'revimses#timer_callback', {'repeat' : -1})

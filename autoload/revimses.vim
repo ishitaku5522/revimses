@@ -18,15 +18,32 @@ function! revimses#load_window(window_file) abort
   endif
 endfunction
 
-function! revimses#load_session(session_name,notify_flag) abort
-  " let revimses#session_loaded = s:true
-  let l:fullpath = s:fullpath_sessiondir() . '/' . a:session_name
+function! revimses#restore_on_startup() abort
+  let l:fullpath = s:fullpath_sessiondir() . '/.default.vim'
   if filereadable(l:fullpath)
-    execute 'source' l:fullpath
+    " let l:restore = confirm('Restore last session?',"&Yes\n&No")
+    " if l:restore == 2
+    "   return
+    " endif
+    call revimses#load_session(".default.vim",s:false)
+  endif
+endfunction
+
+function! revimses#load_session(session_name, notify_flag) abort
+  if a:session_name ==# ''
+    let l:session_name = '.default.vim'
+  else
+    let l:session_name = a:session_name
+  endif
+
+  " let revimses#session_loaded = s:true
+  let l:fullpath = s:fullpath_sessiondir() . '/' . l:session_name
+  if filereadable(l:fullpath)
+    silent execute 'source' l:fullpath
     if a:notify_flag == s:true
       echom "Session-file: '" . l:fullpath . "' was loaded."
     endif
-    if a:session_name ==# '.default.vim'
+    if l:session_name ==# '.default.vim'
       call rename(l:fullpath, s:fullpath_sessiondir() . '/.swap.vim')
     endif
   else
@@ -69,19 +86,25 @@ function! revimses#delete_session(session_name,notify_flag) abort
 endfunction
 
 function! revimses#save_window(save_window_file) abort
-  let l:window_maximaize = ''
-  if has('win32')
-    if libcallnr('User32.dll', 'IsZoomed', v:windowid)
-      let l:window_maximaize = 'au GUIEnter * simalt ~x'
-    endif
-  endif
   let options = [
         \ 'set lines=' . &lines,
         \ 'set columns=' . &columns,
         \ 'winpos ' . getwinposx() . ' ' . getwinposy(),
-        \ l:window_maximaize
         \ ]
+
+  if has('win32') && libcallnr('User32.dll', 'IsZoomed', v:windowid)
+    let window_maximaize = [
+          \ 'if has("vim_starting")',
+          \ '  au GUIEnter * simalt ~x',
+          \ 'else',
+          \ '  simalt ~x',
+          \ 'endif',
+          \ ]
+    call extend(options, window_maximaize)
+  endif
+
   call writefile(options, a:save_window_file)
+  call setfperm(a:save_window_file, 'rw-rw-rw-')
 endfunction
 
 function! revimses#clear_session() abort
@@ -98,6 +121,26 @@ function! revimses#customlist(ArgLead, CmdLine, CursorPos) abort
   let l:filelist = glob(a:ArgLead . '*',1,1)
   exe 'cd ' . expand(l:save_cd)
   return l:filelist
+endfunction
+
+function! revimses#check_restoreable() abort
+  if argc() == 0 && tabpagenr('$') == 1 && winnr('$') == 1 && bufname('%') ==# ''
+    return 1
+  else
+    return 0
+  endif
+endfunction
+
+function! revimses#check_savable() abort
+  if tabpagenr('$') == 1 && winnr('$') == 1 && bufname('%') ==# ''
+    return 0
+  endif
+
+  if g:revimses#_save_session_flag
+    return 1
+  else
+    return 0
+  endif
 endfunction
 
 let &cpo = s:save_cpo
